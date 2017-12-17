@@ -2,9 +2,9 @@ import gym
 from ai_brain import Brain
 import sys
 
-SERIALIZE_AFTER_EPISODES = 100
 REWARD_THREHSOLD = 200
 CONSECUTIVE_THRESHOLD = 100
+
 
 # The train parameter defines if the reward should be sent back to the brain or not
 def run_using_brain(env, brain, train):
@@ -22,35 +22,36 @@ def run_using_brain(env, brain, train):
             brain.put_reward(reward, current_observation)
         # If done, the episode is finished, we should reset the environment
         if done:
-            brain.clear_buffer()
+            brain.process_buffer()
             return reward
 
 
 def test(env, brain):
     consecutive = 0
-    while (True):
+    while True:
         reward = run_using_brain(env, brain, False)
         if reward > REWARD_THREHSOLD:
-            consecutive+=1
+            consecutive += 1
         else:
             consecutive = 0
         if consecutive == 100:
             break
 
 
-def train(env,brain):
+def train(env, brain):
     # Prepare to leave it overnight
     episodes = 0
 
-    while(True):
-        # Keep training
-        if episodes % SERIALIZE_AFTER_EPISODES == 0 :
-            print("Serializing model")
-            brain.serialize_model()
+    # set the brain to save the model every interval seconds
+    brain.set_serialization_interval(3600)
 
+    while True:
+        # Keep training
+        brain.serialize_model()
         run_using_brain(env, brain, True)
-        episodes+=1
+        episodes += 1
         print("Episode {} finished!".format(episodes))
+
 
 if __name__ == '__main__':
 
@@ -58,13 +59,7 @@ if __name__ == '__main__':
     # If we have a model passed as argument
     # Load the model into the brain if there was a path specified as argument
     brain = Brain(env.action_space, env.observation_space, None if len(sys.argv) == 2 else sys.argv[2])
-
     if sys.argv[1] == 'TRAIN':
         train(env, brain)
     else:
         test(env, brain)
-
-
-
-
-
