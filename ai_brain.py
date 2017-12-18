@@ -12,10 +12,10 @@ class Brain:
     observation_space = None
     state = None
     action = None
-    epsilon = 0.1
+    epsilon = 0.01
     MAX_BUFFER = 1000
     model = None
-    discount_factor = 0.8
+    discount_factor = 0.5
     buffer = []
 
     start_time = int(time.time())
@@ -42,7 +42,8 @@ class Brain:
         self.state = self.format_input(current_observation)
         if np.random.choice([True, False], 1, p=[self.epsilon, 1 - self.epsilon]):
             self.action = None
-            return self.action_space.sample()
+            self.rand_action = self.action_space.sample()
+            return self.rand_action
         else:
             # Action_vector is formatted as: [[1,2,3,4]]
             action_vector = self.model.predict(self.state)
@@ -54,7 +55,9 @@ class Brain:
         self.observation_space = observation_space
 
         self.model = Sequential()
-        self.model.add(Dense(100, input_shape=(observation_space.shape[0],)))
+        self.model.add(Dense(64, input_shape=(observation_space.shape[0],)))
+        self.model.add(Activation('relu'))
+        self.model.add(Dense(64))
         self.model.add(Activation('relu'))
         self.model.add(Dense(action_space.n))
         # self.model.add(Activation('linear'))
@@ -91,19 +94,23 @@ class Brain:
         np.random.shuffle(self.buffer)
         self.targets = []
         self.states = []
+        self.tar_arg = 0
         if len(self.buffer) == 0:
             return
         for (s, a, r, s_prim) in self.buffer[:len(self.buffer)]:
             if a is not None:
-                q = self.model.predict(s)
-                target = q
-                q_prim = self.model.predict(s_prim)
-                # np.argmax(a[0]) = the action: s -> s_prim
-                # q_prim[0][0] = estimated reward starting from s_prim and apllying action 0
-                # q_prim = [0][1] = estimated reward starting from s_prim and apllying action 1
-                target[0][np.argmax(a[0])] = r + self.discount_factor * max(q_prim[0])
-                self.targets.append(target[0])
-                self.states.append(s[0])
+                self.tar_arg = np.argmax(a[0])
+            else:
+                self.tar_arg = self.rand_action
+            q = self.model.predict(s)
+            target = q
+            q_prim = self.model.predict(s_prim)
+            # np.argmax(a[0]) = the action: s -> s_prim
+            # q_prim[0][0] = estimated reward starting from s_prim and apllying action 0
+            # q_prim = [0][1] = estimated reward starting from s_prim and apllying action 1
+            target[0][self.tar_arg] = r + self.discount_factor * max(q_prim[0])
+            self.targets.append(target[0])
+            self.states.append(s[0])
         # aici se produce eroare, uitate si la __init__ cum am initalizat vectorii, posibil/PROBABIL am gresit pe acolo.
         self.targets = np.array(self.targets)
         self.states = np.array(self.states)
