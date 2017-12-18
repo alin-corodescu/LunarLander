@@ -13,10 +13,12 @@ class Brain:
     state = None
     action = 0
     epsilon = 0.1
-    MAX_BUFFER = 25
+    MAX_BUFFER = 10000
     model = None
     discount_factor = 0.8
     buffer = []
+    targets = np.array([])
+    states = np.array([])
     start_time = int(time.time())
     serialize_file_destination = "log/model"
     serialize_time_interval = 3600
@@ -48,19 +50,20 @@ class Brain:
             return np.argmax(action_vector[0])
 
     def __init__(self, action_space, observation_space, path=None):
-        if path is not None:
-            self.load_model(path)
         self.action_space = action_space
         self.observation_space = observation_space
 
         self.model = Sequential()
         self.model.add(Dense(100, input_shape=(observation_space.shape[0],)))
-        self.model.add(Activation('sigmoid'))
+        self.model.add(Activation('relu'))
         self.model.add(Dense(action_space.n))
-        self.model.add(Activation('sigmoid'))
+        self.model.add(Activation('linear'))
 
         optimizer = SGD(lr=0.2, momentum=0.0)
-        self.model.compile(optimizer=optimizer, loss='mse')
+        self.model.compile(optimizer=optimizer, loss='logcosh')
+
+        if path is not None:
+            self.load_model(path)
 
     # Stores the reward from the last action outputted by this Brain, used to train the neural network
     # As an optimization, we could batch the updates (see course slides)
@@ -86,7 +89,6 @@ class Brain:
 
     def process_buffer(self):
         np.random.shuffle(self.buffer)
-        #         Sample from the result
         for (s, a, r, s_prim) in self.buffer[:len(self.buffer)]:
             q = self.model.predict(s)
             target = q
@@ -95,5 +97,8 @@ class Brain:
             # q_prim[0][0] = estimated reward starting from s_prim and apllying action 0
             # q_prim = [0][1] = estimated reward starting from s_prim and apllying action 1
             target[0][np.argmax(a[0])] = r + self.discount_factor * max(q_prim[0])
-            self.model.fit(s, target)
+            np.append(self.targets,target)
+            np.append(self.states,s)
+        # aici se produce eroare, uitate si la __init__ cum am initalizat vectorii, posibil/PROBABIL am gresit pe acolo.
+        self.model.fit(self.states, self.targets, batch_size=32)
         self.buffer.clear()
