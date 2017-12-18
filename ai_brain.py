@@ -12,15 +12,15 @@ class Brain:
     observation_space = None
     state = None
     action = None
-    epsilon = 0.01
+    epsilon = 0.1
     MAX_BUFFER = 1000
     model = None
-    discount_factor = 0.5
+    discount_factor = 0.75
     buffer = []
 
     start_time = int(time.time())
     serialize_file_destination = "log/model"
-    serialize_time_interval = 3600
+    serialize_time_interval = 1800
     counter = 0
 
     # Serialize the trained model thus far, to be used later on
