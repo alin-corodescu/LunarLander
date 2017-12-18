@@ -2,7 +2,7 @@ import numpy as np
 from keras import Sequential
 from keras.layers import Dense, Activation
 from keras.models import load_model
-from keras.optimizers import SGD
+from keras.optimizers import RMSprop
 import time
 
 
@@ -59,7 +59,7 @@ class Brain:
         self.model.add(Dense(action_space.n))
         # self.model.add(Activation('linear'))
 
-        optimizer = SGD(lr=0.09, momentum=0.2)
+        optimizer = RMSprop(lr=0.09)
         self.model.compile(optimizer=optimizer, loss='logcosh')
 
         if path is not None:
@@ -91,6 +91,8 @@ class Brain:
         np.random.shuffle(self.buffer)
         self.targets = []
         self.states = []
+        if len(self.buffer) == 0:
+            return
         for (s, a, r, s_prim) in self.buffer[:len(self.buffer)]:
             if a is not None:
                 q = self.model.predict(s)
