@@ -13,8 +13,11 @@ class Brain:
     observation_space = None
     state = None
     action = None
-    epsilon = 0.1
+    epsilon = 1
+    epsilon_decay_counter = 1
+
     MAX_BUFFER = 10000
+    BATCH_SIZE = 200
     model = None
     discount_factor = 0.75
     buffer = []
@@ -41,6 +44,7 @@ class Brain:
     # This is a random action for the moment
     def get_action_for(self, current_observation):
         self.state = self.format_input(current_observation)
+        self.epsilon_decay()
         if np.random.choice([True, False], 1, p=[self.epsilon, 1 - self.epsilon]):
             self.action = None
             self.rand_action = self.action_space.sample()
@@ -50,6 +54,17 @@ class Brain:
             action_vector = self.model.predict(self.state)
             self.action = action_vector
             return np.argmax(action_vector[0])
+
+    # balance between exploration and exploitation
+    # At the beginning we take random actions
+    # As we gain experience, we lower the posibility of taking random actions
+    def epsilon_decay(self):
+        if self.epsilon_decay_counter <= 100:
+            if self.epsilon_decay_counter % 5 is 0:
+                self.epsilon -= 0.5
+        else:
+            self.epsilon = 0.05
+
 
     def __init__(self, action_space, observation_space, path=None):
         self.action_space = action_space
@@ -115,5 +130,5 @@ class Brain:
         # aici se produce eroare, uitate si la __init__ cum am initalizat vectorii, posibil/PROBABIL am gresit pe acolo.
         self.targets = np.array(self.targets)
         self.states = np.array(self.states)
-        self.model.fit(self.states, self.targets, batch_size=100)
+        self.model.fit(self.states, self.targets, batch_size=self.BATCH_SIZE)
         self.buffer.clear()
