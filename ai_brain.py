@@ -1,9 +1,10 @@
+import time
+
 import numpy as np
 from keras import Sequential
 from keras.layers import Dense, Activation
 from keras.models import load_model
-from keras.optimizers import RMSprop
-import time
+from keras.optimizers import SGD
 
 
 class Brain:
@@ -13,14 +14,14 @@ class Brain:
     state = None
     action = None
     epsilon = 0.1
-    MAX_BUFFER = 1000
+    MAX_BUFFER = 10000
     model = None
     discount_factor = 0.75
     buffer = []
 
     start_time = int(time.time())
     serialize_file_destination = "log/model"
-    serialize_time_interval = 1800
+    serialize_time_interval = 3600
     counter = 0
 
     # Serialize the trained model thus far, to be used later on
@@ -60,9 +61,9 @@ class Brain:
         self.model.add(Dense(64))
         self.model.add(Activation('relu'))
         self.model.add(Dense(action_space.n))
-        # self.model.add(Activation('linear'))
+        self.model.add(Activation('linear'))
 
-        optimizer = RMSprop(lr=0.09)
+        optimizer = SGD(lr=0.05)
         self.model.compile(optimizer=optimizer, loss='logcosh')
 
         if path is not None:
@@ -97,7 +98,7 @@ class Brain:
         self.tar_arg = 0
         if len(self.buffer) == 0:
             return
-        for (s, a, r, s_prim) in self.buffer[:len(self.buffer)]:
+        for (s, a, r, s_prim) in self.buffer[:len(self.buffer)//3]:
             if a is not None:
                 self.tar_arg = np.argmax(a[0])
             else:
