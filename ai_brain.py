@@ -3,9 +3,9 @@ import time
 
 import numpy as np
 from keras import Sequential
-from keras.layers import Dense, Activation
+from keras.layers import Dense, Activation, regularizers
 from keras.models import load_model
-from keras.optimizers import SGD
+from keras.optimizers import SGD, Adam
 
 
 class Brain:
@@ -18,9 +18,11 @@ class Brain:
     epsilon_decay_counter = 1
     epsilon_start = 1
     epsilon_end = 0.05
-    initial_random_actions = 500
-    MAX_BUFFER = 5000
-    BATCH_SIZE = 32
+    epsilon_decay_len = 5e4
+    epsilon_linear = (epsilon_start - epsilon_end) / epsilon_decay_len
+    initial_random_actions = 2000
+    MAX_BUFFER = 5e4
+    BATCH_SIZE = 102
     model = None
     target_estimator = None
     discount_factor = 0.99
@@ -47,11 +49,11 @@ class Brain:
     # Will pass the input through the network and output an action
     def get_action_for(self, current_observation, training):
         self.state = self.format_input(current_observation)
-        if self.random_obs > self.initial_random_actions:
-            # print("epsilon begins decaying")
+
+        if self.random_obs < self.epsilon_decay_len:
             self.epsilon_decay()
-        else:
             self.random_obs += 1
+
         if np.random.choice([True, False], 1, p=[self.epsilon, 1 - self.epsilon]) and training:
             self.action = None
             self.rand_action = self.action_space.sample()
@@ -66,16 +68,8 @@ class Brain:
     # At the beginning we take random actions
     # As we gain experience, we lower the posibility of taking random actions
     def epsilon_decay(self):
-        if self.epsilon_decay_counter % 100 == 0:
-            # print("epsilon decayed")
-            self.epsilon -= 0.05
 
-        # stop decaying after a point
-        if self.epsilon_decay_counter < 2000:
-            self.epsilon_decay_counter += 1
-
-        if self.epsilon < self.epsilon_end:
-            self.epsilon = self.epsilon_end
+        self.epsilon -= self.epsilon_linear
 
 
     def __init__(self, action_space, observation_space, path=None):
@@ -83,14 +77,16 @@ class Brain:
         self.observation_space = observation_space
 
         self.model = Sequential()
-        self.model.add(Dense(64, input_shape=(observation_space.shape[0],)))
+        self.model.add(Dense(64, input_shape=(observation_space.shape[0],), kernel_regularizer=regularizers.l2(1e-3)))
         self.model.add(Activation('relu'))
-        self.model.add(Dense(64))
+        self.model.add(Dense(64, kernel_regularizer=regularizers.l2(1e-3)))
+        # self.model.add(Activation('relu'))
+        # self.model.add(Dense(64, kernel_regularizer=regularizers.l2(1e-3)))
         self.model.add(Activation('relu'))
         self.model.add(Dense(action_space.n))
         # self.model.add(Activation('linear'))
 
-        optimizer = SGD(lr=0.05)
+        optimizer = Adam(lr=1e-2)
         self.model.compile(optimizer=optimizer, loss='logcosh')
 
         if path is not None:
@@ -104,6 +100,9 @@ class Brain:
         # if(type(self.action) == 'list'):
         #     return
         # If we need to kick out the first element
+        if self.random_obs >= self.epsilon_decay_len and done:
+            self.epsilon *= 0.97
+
         if (len(self.buffer) == self.MAX_BUFFER):
             self.buffer.pop(0)
         self.buffer.append((self.state, self.action, reward, self.format_input(new_state), done))
@@ -120,7 +119,7 @@ class Brain:
         return current_observation.reshape(1, 8)
 
     def process_buffer(self):
-        if (len(self.buffer) > self.BATCH_SIZE):
+        if (len(self.buffer) > self.initial_random_actions):
             samples = random.sample(self.buffer, self.BATCH_SIZE)
         else:
             return
@@ -144,4 +143,4 @@ class Brain:
         # aici se produce eroare, uitate si la __init__ cum am initalizat vectorii, posibil/PROBABIL am gresit pe acolo.
         self.targets = np.array(self.targets)
         self.states = np.array(self.states)
-        self.model.fit(self.states, self.targets)
+        self.model.fit(self.states, self.targets, batch_size=10, verbose=0)
