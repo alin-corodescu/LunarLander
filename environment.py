@@ -48,7 +48,7 @@ def train(env, brain):
     episodes = 0
 
     # set the brain to save the model every interval seconds
-    brain.set_serialization_interval(60)
+    brain.set_serialization_interval(3600)
 
     while True:
         # Keep training
