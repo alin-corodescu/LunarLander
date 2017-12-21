@@ -22,7 +22,7 @@ class Brain:
     epsilon_linear = (epsilon_start - epsilon_end) / epsilon_decay_len
     initial_random_actions = 2000
     MAX_BUFFER = 5e4
-    BATCH_SIZE = 102
+    BATCH_SIZE = 100
     model = None
     target_estimator = None
     discount_factor = 0.99
@@ -77,17 +77,17 @@ class Brain:
         self.observation_space = observation_space
 
         self.model = Sequential()
-        self.model.add(Dense(64, input_shape=(observation_space.shape[0],), kernel_regularizer=regularizers.l2(1e-3)))
+        self.model.add(Dense(64, input_shape=(observation_space.shape[0],)))
         self.model.add(Activation('relu'))
-        self.model.add(Dense(64, kernel_regularizer=regularizers.l2(1e-3)))
+        self.model.add(Dense(64))
+        self.model.add(Activation('relu'))
         # self.model.add(Activation('relu'))
         # self.model.add(Dense(64, kernel_regularizer=regularizers.l2(1e-3)))
-        self.model.add(Activation('relu'))
         self.model.add(Dense(action_space.n))
-        # self.model.add(Activation('linear'))
+        self.model.add(Activation('linear'))
 
-        optimizer = Adam(lr=1e-2)
-        self.model.compile(optimizer=optimizer, loss='logcosh')
+        optimizer = Adam(lr=0.002, decay=2.25e-05)
+        self.model.compile(optimizer=optimizer, loss='mse')
 
         if path is not None:
             self.load_model(path)
