@@ -57,6 +57,8 @@ def train(env, brain):
         episodes += 1
         print(reward)
         print("Episode {} finished!".format(episodes))
+        if episodes % 100 == 0:
+            brain.update_target_network()
 
 
 if __name__ == '__main__':

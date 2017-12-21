@@ -4,8 +4,8 @@ import time
 import numpy as np
 from keras import Sequential
 from keras.layers import Dense, Activation, regularizers
-from keras.models import load_model
-from keras.optimizers import SGD, Adam
+from keras.models import load_model, clone_model
+from keras.optimizers import Adam
 
 
 class Brain:
@@ -18,11 +18,11 @@ class Brain:
     epsilon_decay_counter = 1
     epsilon_start = 1
     epsilon_end = 0.05
-    epsilon_decay_len = 5e4
+    epsilon_decay_len = 5e5
     epsilon_linear = (epsilon_start - epsilon_end) / epsilon_decay_len
-    initial_random_actions = 2000
-    MAX_BUFFER = 5e4
-    BATCH_SIZE = 102
+    initial_random_actions = 2e3
+    MAX_BUFFER = 5e5
+    BATCH_SIZE = 1024
     model = None
     target_estimator = None
     discount_factor = 0.99
@@ -88,6 +88,20 @@ class Brain:
 
         optimizer = Adam(lr=1e-2)
         self.model.compile(optimizer=optimizer, loss='logcosh')
+        
+        
+        self.target_estimator = Sequential()
+        self.target_estimator.add(Dense(64, input_shape=(observation_space.shape[0],), kernel_regularizer=regularizers.l2(1e-3)))
+        self.target_estimator.add(Activation('relu'))
+        self.target_estimator.add(Dense(64, kernel_regularizer=regularizers.l2(1e-3)))
+        # self.target_estimator.add(Activation('relu'))
+        # self.target_estimator.add(Dense(64, kernel_regularizer=regularizers.l2(1e-3)))
+        self.target_estimator.add(Activation('relu'))
+        self.target_estimator.add(Dense(action_space.n))
+        # self.target_estimator.add(Activation('linear'))
+
+        optimizer = Adam(lr=1e-2)
+        self.model.compile(optimizer=optimizer, loss='logcosh')
 
         if path is not None:
             self.load_model(path)
@@ -110,6 +124,7 @@ class Brain:
 
     # Loads a serialized model from the disk
     def load_model(self, path):
+        self.target_estimator = load_model(path)
         self.model = load_model(path)
 
     # Current_obeservation = [1,2,3,5...8]
@@ -133,7 +148,7 @@ class Brain:
                 self.tar_arg = self.rand_action
             q = self.model.predict(s)
             target = q
-            q_prim = self.model.predict(s_prim)
+            q_prim = self.target_estimator.predict(s_prim)
             # np.argmax(a[0]) = the action: s -> s_prim
             # q_prim[0][0] = estimated reward starting from s_prim and apllying action 0
             # q_prim = [0][1] = estimated reward starting from s_prim and apllying action 1
@@ -144,3 +159,6 @@ class Brain:
         self.targets = np.array(self.targets)
         self.states = np.array(self.states)
         self.model.fit(self.states, self.targets, batch_size=10, verbose=0)
+
+    def update_target_network(self):
+        self.target_estimator = clone_model(self.model)
