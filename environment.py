@@ -48,7 +48,7 @@ def train(env, brain):
     episodes = 0
 
     # set the brain to save the model every interval seconds
-    brain.set_serialization_interval(3600)
+    brain.set_serialization_interval(600)
 
     while True:
         # Keep training
@@ -57,6 +57,12 @@ def train(env, brain):
         episodes += 1
         print(reward)
         print("Episode {} finished!".format(episodes))
+        print("Epsilon = {}".format(brain.epsilon))
+        # Update target estimator once every 25 episodes
+        if episodes % 25 == 0:
+            print("Updating target estimator")
+            from keras.models import clone_model
+            brain.target_estimator = clone_model(brain.model)
 
 
 if __name__ == '__main__':

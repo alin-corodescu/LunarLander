@@ -3,9 +3,9 @@ import time
 
 import numpy as np
 from keras import Sequential
-from keras.layers import Dense, Activation, regularizers
+from keras.layers import Dense, Activation
 from keras.models import load_model
-from keras.optimizers import SGD, Adam
+from keras.optimizers import Adam
 
 
 class Brain:
@@ -17,12 +17,12 @@ class Brain:
     epsilon = 1
     epsilon_decay_counter = 1
     epsilon_start = 1
-    epsilon_end = 0.05
-    epsilon_decay_len = 5e4
+    epsilon_end = 0.075
+    epsilon_decay_len =  3e4
     epsilon_linear = (epsilon_start - epsilon_end) / epsilon_decay_len
-    initial_random_actions = 2000
+    initial_random_actions = 5000
     MAX_BUFFER = 5e4
-    BATCH_SIZE = 100
+    BATCH_SIZE = 300
     model = None
     target_estimator = None
     discount_factor = 0.99
@@ -85,9 +85,21 @@ class Brain:
         # self.model.add(Dense(64, kernel_regularizer=regularizers.l2(1e-3)))
         self.model.add(Dense(action_space.n))
         self.model.add(Activation('linear'))
-
-        optimizer = Adam(lr=0.002, decay=2.25e-05)
+        
+        optimizer = Adam(lr=5e-4, decay=2.25e-05)
         self.model.compile(optimizer=optimizer, loss='mse')
+        
+        self.target_estimator = Sequential()
+        self.target_estimator.add(Dense(64, input_shape=(observation_space.shape[0],)))
+        self.target_estimator.add(Activation('relu'))
+        self.target_estimator.add(Dense(64))
+        self.target_estimator.add(Activation('relu'))
+        # self.target_estimator.add(Activation('relu'))
+        # self.target_estimator.add(Dense(64, kernel_regularizer=regularizers.l2(1e-3)))
+        self.target_estimator.add(Dense(action_space.n))
+        self.target_estimator.add(Activation('linear'))
+
+
 
         if path is not None:
             self.load_model(path)
@@ -111,6 +123,7 @@ class Brain:
     # Loads a serialized model from the disk
     def load_model(self, path):
         self.model = load_model(path)
+        self.target_estimator = load_model(path)
 
     # Current_obeservation = [1,2,3,5...8]
     # After reshape
@@ -133,7 +146,7 @@ class Brain:
                 self.tar_arg = self.rand_action
             q = self.model.predict(s)
             target = q
-            q_prim = self.model.predict(s_prim)
+            q_prim = self.target_estimator.predict(s_prim)
             # np.argmax(a[0]) = the action: s -> s_prim
             # q_prim[0][0] = estimated reward starting from s_prim and apllying action 0
             # q_prim = [0][1] = estimated reward starting from s_prim and apllying action 1
